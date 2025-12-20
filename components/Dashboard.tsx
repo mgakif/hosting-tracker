@@ -4,8 +4,8 @@ import { Project, ProjectFilter } from '../types';
 import { ProjectCard } from './ProjectCard';
 import { ProjectForm } from './ProjectForm';
 import { Filter, Plus, Bell, RefreshCw, Info } from 'lucide-react';
-// Fixed date-fns imports by using subpaths for better compatibility with certain build environments
-import { differenceInDays } from 'date-fns';
+// Fix: Using direct subpath imports for date-fns to resolve export member errors
+import { differenceInDays } from 'date-fns/differenceInDays';
 import { parseISO } from 'date-fns/parseISO';
 import { startOfDay } from 'date-fns/startOfDay';
 import { checkAndNotifySlack } from '../services/slackService';
@@ -145,4 +145,3 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, onRefresh, loadi
       )}
     </div>
   );
-};

@@ -1,37 +1,41 @@
 
 import React, { useState } from 'react';
 import { Project, ProjectStatus } from '../types';
+// Fix: Changed 'lucide-center' to 'lucide-react' to resolve module not found error
 import { Calendar, ExternalLink, Edit2, Trash2, ShieldCheck, AlertCircle, Clock, RefreshCcw, DollarSign } from 'lucide-react';
-// Fixed date-fns imports by using specific subpaths to resolve export issues
-import { format, differenceInDays, addYears } from 'date-fns';
+// Fix: Using direct subpath imports for date-fns to resolve export member errors
+import { format } from 'date-fns/format';
+import { differenceInDays } from 'date-fns/differenceInDays';
+import { addYears } from 'date-fns/addYears';
 import { parseISO } from 'date-fns/parseISO';
 import { startOfDay } from 'date-fns/startOfDay';
 import { tr } from 'date-fns/locale/tr';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
+import { LucideIcon } from 'lucide-react';
+import * as LucideIcons from 'lucide-react';
 
 interface ProjectCardProps {
   project: Project;
   onEdit: () => void;
-  onChanged: () => void; // Renamed from onDelete for clarity
+  onChanged: () => void;
 }
 
 const statusConfig: Record<ProjectStatus, { label: string; color: string; icon: any }> = {
-  odendi: { label: 'ÖDENDİ', color: 'bg-emerald-100 text-emerald-700 ring-emerald-600/20', icon: ShieldCheck },
-  borc: { label: 'BORÇ', color: 'bg-rose-100 text-rose-700 ring-rose-600/20', icon: AlertCircle },
-  iptal: { label: 'İPTAL', color: 'bg-slate-100 text-slate-700 ring-slate-600/20', icon: Clock },
-  durduruldu: { label: 'DURDURULDU', color: 'bg-amber-100 text-amber-700 ring-amber-600/20', icon: Clock },
-  ertelendi: { label: 'ERTELENDİ', color: 'bg-indigo-100 text-indigo-700 ring-indigo-600/20', icon: Clock },
+  odendi: { label: 'ÖDENDİ', color: 'bg-emerald-100 text-emerald-700 ring-emerald-600/20', icon: LucideIcons.ShieldCheck },
+  borc: { label: 'BORÇ', color: 'bg-rose-100 text-rose-700 ring-rose-600/20', icon: LucideIcons.AlertCircle },
+  iptal: { label: 'İPTAL', color: 'bg-slate-100 text-slate-700 ring-slate-600/20', icon: LucideIcons.Clock },
+  durduruldu: { label: 'DURDURULDU', color: 'bg-amber-100 text-amber-700 ring-amber-600/20', icon: LucideIcons.Clock },
+  ertelendi: { label: 'ERTELENDİ', color: 'bg-indigo-100 text-indigo-700 ring-indigo-600/20', icon: LucideIcons.Clock },
 };
 
 export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onChanged }) => {
   const [renewing, setRenewing] = useState(false);
   
-  // Robust date calculation
   const expirationDate = startOfDay(parseISO(project.expiration_date));
   const today = startOfDay(new Date());
   const daysLeft = differenceInDays(expirationDate, today);
   
-  const StatusIcon = statusConfig[project.status]?.icon || Clock;
+  const StatusIcon = statusConfig[project.status]?.icon || LucideIcons.Clock;
 
   const handleDelete = async () => {
     if (!isSupabaseConfigured()) {
@@ -42,8 +46,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onCha
     if (confirm(`"${project.project_name}" projesini silmek istediğinize emin misiniz?`)) {
       const { error } = await supabase.from('projects').delete().eq('id', project.id);
       if (error) {
-        console.error('Delete error details:', error);
-        alert('Silme hatası: ' + (error.message || 'Bilinmeyen hata'));
+        alert('Silme hatası: ' + error.message);
       } else {
         onChanged();
       }
@@ -65,27 +68,20 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onCha
       setRenewing(true);
       try {
         const newExpirationStr = format(nextYearDate, 'yyyy-MM-dd');
-        
-        const { error, data } = await supabase
+        const { error } = await supabase
           .from('projects')
           .update({
             expiration_date: newExpirationStr,
             status: 'odendi' as ProjectStatus,
             last_paid_amount: project.price || 0,
-            slack_notified_at: null // Yeni dönem için bildirimi sıfırla
+            slack_notified_at: null
           })
-          .eq('id', project.id)
-          .select();
+          .eq('id', project.id);
 
-        if (error) {
-          throw error;
-        }
-
-        console.log('Update success:', data);
-        onChanged(); // Listeyi yenile
+        if (error) throw error;
+        onChanged();
       } catch (err: any) {
-        console.error('Yenileme işlemi başarısız:', err);
-        alert('İşlem başarısız: ' + (err.message || 'Veri tabanı hatası. Sütun isimlerini kontrol edin.'));
+        alert('İşlem başarısız: ' + (err.message || 'Veri tabanı hatası.'));
       } finally {
         setRenewing(false);
       }
@@ -94,7 +90,6 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onCha
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow p-5 flex flex-col h-full relative overflow-hidden group">
-      {/* Urgent Indicator */}
       {daysLeft < 7 && project.status !== 'iptal' && (
         <div className="absolute top-0 left-0 w-1.5 h-full bg-rose-500" />
       )}
@@ -107,7 +102,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onCha
           <div className="flex items-center gap-1.5 text-slate-500 text-xs mt-0.5 font-medium">
             <span className="truncate">{project.domain}</span>
             <a href={`http://${project.domain}`} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600">
-              <ExternalLink className="w-3 h-3" />
+              <LucideIcons.ExternalLink className="w-3 h-3" />
             </a>
           </div>
         </div>
@@ -120,7 +115,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onCha
       <div className="space-y-4 flex-1">
         <div className="flex items-center justify-between text-xs font-bold">
           <div className="flex items-center gap-2 text-slate-400">
-            <Calendar className="w-3.5 h-3.5" />
+            <LucideIcons.Calendar className="w-3.5 h-3.5" />
             <span className="uppercase tracking-widest">Yenileme Tarihi</span>
           </div>
           <span className="text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg">
@@ -154,7 +149,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onCha
 
         {project.last_paid_amount !== null && (
           <div className="flex items-center gap-2 px-3 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-[10px] font-black border border-emerald-100 uppercase tracking-wider">
-            <DollarSign className="w-3 h-3" />
+            <LucideIcons.DollarSign className="w-3 h-3" />
             Son Ödenen: {project.last_paid_amount} TL
           </div>
         )}
@@ -171,7 +166,7 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onCha
           disabled={renewing}
           className="w-full flex items-center justify-center gap-2 py-3 text-xs font-black text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-600/20 disabled:opacity-50 active:scale-95"
         >
-          <RefreshCcw className={`w-3.5 h-3.5 ${renewing ? 'animate-spin' : ''}`} />
+          <LucideIcons.RefreshCcw className={`w-3.5 h-3.5 ${renewing ? 'animate-spin' : ''}`} />
           ÖDEME AL VE +1 YIL YENİLE
         </button>
         
@@ -180,14 +175,14 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onCha
             onClick={onEdit}
             className="flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
           >
-            <Edit2 className="w-3.5 h-3.5" />
+            <LucideIcons.Edit2 className="w-3.5 h-3.5" />
             Düzenle
           </button>
           <button 
             onClick={handleDelete}
             className="flex items-center justify-center w-11 h-11 text-rose-500 bg-white border border-rose-200 rounded-xl hover:bg-rose-50 transition-colors"
           >
-            <Trash2 className="w-4 h-4" />
+            <LucideIcons.Trash2 className="w-4 h-4" />
           </button>
         </div>
       </div>
