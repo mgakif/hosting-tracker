@@ -1,9 +1,17 @@
 
 import React, { useState } from 'react';
 import { Project, ProjectStatus } from '../types';
-// Fix: Changed 'lucide-center' to 'lucide-react' to resolve module not found error
-import { Calendar, ExternalLink, Edit2, Trash2, ShieldCheck, AlertCircle, Clock, RefreshCcw, DollarSign } from 'lucide-react';
-// Fix: Using direct subpath imports for date-fns to resolve export member errors
+import { 
+  Calendar, 
+  ExternalLink, 
+  Edit2, 
+  Trash2, 
+  ShieldCheck, 
+  AlertCircle, 
+  Clock, 
+  RefreshCcw, 
+  DollarSign 
+} from 'lucide-react';
 import { format } from 'date-fns/format';
 import { differenceInDays } from 'date-fns/differenceInDays';
 import { addYears } from 'date-fns/addYears';
@@ -11,7 +19,6 @@ import { parseISO } from 'date-fns/parseISO';
 import { startOfDay } from 'date-fns/startOfDay';
 import { tr } from 'date-fns/locale/tr';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
-import { LucideIcon } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 
 interface ProjectCardProps {
