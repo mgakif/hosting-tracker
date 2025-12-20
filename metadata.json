@@ -1,0 +1,5 @@
+{
+  "name": "Hosting & Domain Takip Paneli",
+  "description": "Freelancerlar için yıllık hosting ve domain yenileme tarihlerini takip eden, yaklaşan ödemeleri Slack üzerinden bildiren profesyonel yönetim paneli.",
+  "requestFramePermissions": []
+}
