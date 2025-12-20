@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Bell, Save, ShieldCheck, HelpCircle, Database, AlertTriangle, RefreshCcw, Lock } from 'lucide-react';
+import { Bell, Save, ShieldCheck, Database, AlertTriangle, RefreshCcw, Lock } from 'lucide-react';
 import { isConfiguredByEnv } from '../supabaseClient';
 
 export const Settings: React.FC = () => {
@@ -15,31 +15,35 @@ export const Settings: React.FC = () => {
   const [needsReload, setNeedsReload] = useState(false);
 
   useEffect(() => {
+    // LocalStorage fallback values
+    const lsUrl = localStorage.getItem('supabase_url') || '';
+    const lsKey = localStorage.getItem('supabase_anon_key') || '';
+    
+    // Safely detect current active config
+    // isEnvActive true ise zaten client supabaseClient.ts içinde env'den besleniyor
     setSettings({
       slack_webhook_url: localStorage.getItem('slack_webhook_url') || '',
-      supabase_url: process.env.VITE_SUPABASE_URL || localStorage.getItem('supabase_url') || '',
-      supabase_anon_key: process.env.VITE_API_KEY || localStorage.getItem('supabase_anon_key') || ''
+      supabase_url: isEnvActive ? "Environment'tan okunuyor" : lsUrl,
+      supabase_anon_key: isEnvActive ? "••••••••••••••••" : lsKey
     });
-  }, []);
+  }, [isEnvActive]);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Check if critical DB settings changed
     const oldUrl = localStorage.getItem('supabase_url');
     const oldKey = localStorage.getItem('supabase_anon_key');
-    const dbChanged = oldUrl !== settings.supabase_url || oldKey !== settings.supabase_anon_key;
+    const dbChanged = !isEnvActive && (oldUrl !== settings.supabase_url || oldKey !== settings.supabase_anon_key);
 
     localStorage.setItem('slack_webhook_url', settings.slack_webhook_url);
     
-    // Sadece env aktif değilse manuel değerleri kaydet
     if (!isEnvActive) {
       localStorage.setItem('supabase_url', settings.supabase_url);
       localStorage.setItem('supabase_anon_key', settings.supabase_anon_key);
     }
     
     setIsSaved(true);
-    if (dbChanged && !isEnvActive) setNeedsReload(true);
+    if (dbChanged) setNeedsReload(true);
     
     setTimeout(() => setIsSaved(false), 3000);
   };
@@ -69,23 +73,23 @@ export const Settings: React.FC = () => {
       </div>
 
       {isEnvActive && (
-        <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex items-center gap-3 text-emerald-800">
+        <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex items-center gap-3 text-emerald-800 shadow-sm">
           <ShieldCheck className="w-5 h-5 shrink-0" />
           <p className="text-xs font-bold uppercase tracking-tight">
-            Sistem üretim modunda (Production). Supabase bağlantı bilgileri ortam değişkenlerinden (Environment Variables) güvenli bir şekilde alınıyor.
+            Sistem üretim modunda (Production). Supabase bağlantı bilgileri ortam değişkenlerinden güvenli bir şekilde alınıyor.
           </p>
         </div>
       )}
 
-      {needsReload && !isEnvActive && (
-        <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center justify-between animate-bounce">
+      {needsReload && (
+        <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center justify-between animate-pulse">
           <div className="flex items-center gap-3 text-amber-800">
             <AlertTriangle className="w-5 h-5" />
-            <span className="text-sm font-bold">Veri tabanı ayarları değişti. Uygulanması için yenileyin.</span>
+            <span className="text-sm font-bold">Ayarlar değişti. Uygulanması için sayfayı yenileyin.</span>
           </div>
           <button 
             onClick={() => window.location.reload()}
-            className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-black hover:bg-amber-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-black hover:bg-amber-700 transition-colors shadow-lg shadow-amber-600/20"
           >
             <RefreshCcw className="w-3.5 h-3.5" />
             ŞİMDİ YENİLE
@@ -128,7 +132,7 @@ export const Settings: React.FC = () => {
                 disabled={isEnvActive}
                 value={settings.supabase_anon_key}
                 onChange={(e) => setSettings({...settings, supabase_anon_key: e.target.value})}
-                placeholder="Environment üzerinden yüklendi"
+                placeholder={isEnvActive ? "Environment üzerinden yüklendi" : "Supabase Anon Key"}
                 className={inputClasses}
               />
             </div>
@@ -172,7 +176,7 @@ export const Settings: React.FC = () => {
 
         <button
           type="submit"
-          className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-sm hover:bg-black transition-all shadow-xl shadow-slate-900/20 flex items-center justify-center gap-3"
+          className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-sm hover:bg-black transition-all shadow-xl shadow-slate-900/20 flex items-center justify-center gap-3 active:scale-[0.98]"
         >
           {isSaved ? <ShieldCheck className="w-5 h-5 text-emerald-400" /> : <Save className="w-5 h-5" />}
           {isSaved ? 'DEĞİŞİKLİKLER KAYDEDİLDİ' : 'AYARLARI KAYDET'}
