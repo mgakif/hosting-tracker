@@ -7,7 +7,6 @@ export const Auth: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
   const [message, setMessage] = useState<{ type: 'error' | 'success', text: string } | null>(null);
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -16,16 +15,10 @@ export const Auth: React.FC = () => {
     setMessage(null);
 
     try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        setMessage({ type: 'success', text: 'Kayıt başarılı! Lütfen e-postanızı kontrol edin (veya direkt giriş yapmayı deneyin).' });
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || 'Bir hata oluştu.' });
+      setMessage({ type: 'error', text: err.message || 'Giriş yapılamadı. Bilgilerinizi kontrol edin.' });
     } finally {
       setLoading(false);
     }
@@ -45,7 +38,7 @@ export const Auth: React.FC = () => {
         <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden">
           <div className="p-8">
             <h2 className="text-xl font-bold text-slate-900 mb-6">
-              {isSignUp ? 'Yeni Hesap Oluştur' : 'Panele Giriş Yap'}
+              Panele Giriş Yap
             </h2>
 
             {message && (
@@ -95,7 +88,7 @@ export const Auth: React.FC = () => {
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                   <>
-                    {isSignUp ? 'KAYIT OL' : 'GİRİŞ YAP'}
+                    GİRİŞ YAP
                     <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </>
                 )}
@@ -104,12 +97,9 @@ export const Auth: React.FC = () => {
           </div>
 
           <div className="px-8 py-4 bg-slate-50 border-t border-slate-100 text-center">
-            <button
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors uppercase tracking-widest"
-            >
-              {isSignUp ? 'Zaten hesabın var mı? Giriş Yap' : 'Henüz hesabın yok mu? Kayıt Ol'}
-            </button>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              Güvenli Erişim Protokolü Aktif
+            </p>
           </div>
         </div>
         

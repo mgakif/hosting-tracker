@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { Bell, Save, ShieldCheck, Database, AlertTriangle, RefreshCcw, Lock } from 'lucide-react';
-import { isConfiguredByEnv } from '../supabaseClient';
+import { Bell, Save, ShieldCheck, Database, AlertTriangle, RefreshCcw, Lock, Loader2 } from 'lucide-react';
+import { isConfiguredByEnv, supabase } from '../supabaseClient';
 
 export const Settings: React.FC = () => {
   const isEnvActive = isConfiguredByEnv();
@@ -11,40 +11,63 @@ export const Settings: React.FC = () => {
     supabase_url: '',
     supabase_anon_key: ''
   });
+  const [loading, setLoading] = useState(true);
   const [isSaved, setIsSaved] = useState(false);
   const [needsReload, setNeedsReload] = useState(false);
 
   useEffect(() => {
-    // LocalStorage fallback values
-    const lsUrl = localStorage.getItem('supabase_url') || '';
-    const lsKey = localStorage.getItem('supabase_anon_key') || '';
-    
-    // Safely detect current active config
-    // isEnvActive true ise zaten client supabaseClient.ts içinde env'den besleniyor
-    setSettings({
-      slack_webhook_url: localStorage.getItem('slack_webhook_url') || '',
-      supabase_url: isEnvActive ? "Environment'tan okunuyor" : lsUrl,
-      supabase_anon_key: isEnvActive ? "••••••••••••••••" : lsKey
-    });
+    const fetchSettings = async () => {
+      setLoading(true);
+      
+      // Slack URL'sini Supabase'den çek
+      const { data } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'slack_webhook_url')
+        .single();
+
+      // Supabase LocalStorage fallback values
+      const lsUrl = localStorage.getItem('supabase_url') || '';
+      const lsKey = localStorage.getItem('supabase_anon_key') || '';
+      
+      setSettings({
+        slack_webhook_url: data?.value || '',
+        supabase_url: isEnvActive ? "Environment'tan okunuyor" : lsUrl,
+        supabase_anon_key: isEnvActive ? "••••••••••••••••" : lsKey
+      });
+      
+      setLoading(false);
+    };
+
+    fetchSettings();
   }, [isEnvActive]);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const oldUrl = localStorage.getItem('supabase_url');
-    const oldKey = localStorage.getItem('supabase_anon_key');
-    const dbChanged = !isEnvActive && (oldUrl !== settings.supabase_url || oldKey !== settings.supabase_anon_key);
+    // Slack URL'sini Supabase'e kaydet (Upsert)
+    const { error: slackError } = await supabase
+      .from('settings')
+      .upsert({ key: 'slack_webhook_url', value: settings.slack_webhook_url });
 
-    localStorage.setItem('slack_webhook_url', settings.slack_webhook_url);
-    
+    if (slackError) {
+      alert("Slack URL kaydedilirken hata oluştu: " + slackError.message);
+      return;
+    }
+
+    // Supabase bağlantı bilgilerini LocalStorage'a kaydet (Eğer env'den gelmiyorsa)
     if (!isEnvActive) {
+      const oldUrl = localStorage.getItem('supabase_url');
+      const oldKey = localStorage.getItem('supabase_anon_key');
+      const dbChanged = oldUrl !== settings.supabase_url || oldKey !== settings.supabase_anon_key;
+
       localStorage.setItem('supabase_url', settings.supabase_url);
       localStorage.setItem('supabase_anon_key', settings.supabase_anon_key);
+      
+      if (dbChanged) setNeedsReload(true);
     }
     
     setIsSaved(true);
-    if (dbChanged) setNeedsReload(true);
-    
     setTimeout(() => setIsSaved(false), 3000);
   };
 
@@ -64,6 +87,14 @@ export const Settings: React.FC = () => {
 
   const inputClasses = "w-full px-4 py-2.5 bg-white border border-slate-400 text-slate-900 rounded-xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 focus:outline-none transition-all font-mono text-xs disabled:bg-slate-50 disabled:text-slate-500 disabled:border-slate-200";
   const labelClasses = "block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5";
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -179,7 +210,7 @@ export const Settings: React.FC = () => {
           className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-sm hover:bg-black transition-all shadow-xl shadow-slate-900/20 flex items-center justify-center gap-3 active:scale-[0.98]"
         >
           {isSaved ? <ShieldCheck className="w-5 h-5 text-emerald-400" /> : <Save className="w-5 h-5" />}
-          {isSaved ? 'DEĞİŞİKLİKLER KAYDEDİLDİ' : 'AYARLARI KAYDET'}
+          {isSaved ? 'BULUT ÜZERİNE KAYDEDİLDİ' : 'AYARLARI KAYDET'}
         </button>
       </form>
     </div>

@@ -1,20 +1,27 @@
 
 import { Project } from '../types';
-// Fix: Using direct subpath imports for date-fns to resolve export member errors
 import { differenceInDays } from 'date-fns/differenceInDays';
 import { parseISO } from 'date-fns/parseISO';
 import { supabase } from '../supabaseClient';
 
 export const checkAndNotifySlack = async (projects: Project[]) => {
   const today = new Date();
-  const SLACK_WEBHOOK_URL = localStorage.getItem('slack_webhook_url');
+  
+  // URL'yi Supabase settings tablosundan çek
+  const { data: settingsData, error: settingsError } = await supabase
+    .from('settings')
+    .select('value')
+    .eq('key', 'slack_webhook_url')
+    .single();
 
-  if (!SLACK_WEBHOOK_URL) {
+  if (settingsError || !settingsData?.value) {
     return { 
       success: false, 
-      message: "Slack Webhook URL ayarlanmamış. Lütfen Ayarlar sayfasından yapılandırın." 
+      message: "Slack Webhook URL'si veri tabanında bulunamadı. Lütfen Ayarlar sayfasından yapılandırın." 
     };
   }
+
+  const SLACK_WEBHOOK_URL = settingsData.value;
 
   const projectsToNotify = projects.filter(p => {
     const daysLeft = differenceInDays(parseISO(p.expiration_date), today);
