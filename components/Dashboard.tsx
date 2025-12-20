@@ -145,3 +145,4 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, onRefresh, loadi
       )}
     </div>
   );
+};
