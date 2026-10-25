@@ -2,7 +2,7 @@
 
 Yıllık hosting/domain yenileme tarihlerini takip eden, yaklaşan ödemeleri Slack'e bildiren panel.
 
-**Canlı:** https://hosting-tracker.mgakif.workers.dev
+**Canlı:** https://takip.bilgigram.com
 
 **Altyapı:** React (Vite) + Cloudflare Worker + Cloudflare D1 (SQLite).
 D1, Supabase'in ücretsiz planı gibi kullanılmayınca uyumaz/kapanmaz. Slack hatırlatıcısı da

@@ -5,7 +5,7 @@ description: HostTracker'ı Cloudflare Workers'a yayınlar, gizli değerleri gü
 
 # HostTracker – Cloudflare deploy
 
-Canlı adres: https://hosting-tracker.mgakif.workers.dev
+Canlı adres: https://takip.bilgigram.com
 Worker adı: `hosting-tracker` · D1: `hosting-tracker` (`0bd8dd91-1f10-4592-8e14-6a9539da1506`)
 
 ## Kimlik doğrulama
@@ -49,8 +49,8 @@ npx wrangler secret list
 
 ## Doğrulama (deploy sonrası)
 
-1. `curl -s -o /dev/null -w "%{http_code}" https://hosting-tracker.mgakif.workers.dev/` → 200
-2. `curl -s https://hosting-tracker.mgakif.workers.dev/api/me` → 401 `Oturum bulunamadı.` (API ayakta)
+1. `curl -s -o /dev/null -w "%{http_code}" https://takip.bilgigram.com/` → 200
+2. `curl -s https://takip.bilgigram.com/api/me` → 401 `Oturum bulunamadı.` (API ayakta)
 3. Cron logları: `npx wrangler tail` ya da Cloudflare paneli → Workers → hosting-tracker → Logs.
    Son bildirim çalışmasının sonucu D1'de `settings.last_notify` satırında:
    `npx wrangler d1 execute hosting-tracker --remote --command "SELECT value FROM settings WHERE key='last_notify'"`

@@ -4,6 +4,11 @@
   "main": "worker/index.ts",
   "compatibility_date": "2025-10-01",
 
+  // Panel adresi (bilgigram.com Cloudflare'de; DNS kaydını Cloudflare otomatik oluşturur)
+  "routes": [{ "pattern": "takip.bilgigram.com", "custom_domain": true }],
+  "workers_dev": false,
+  "preview_urls": false,
+
   // Vite çıktısı (dist) statik olarak sunulur; /api/* istekleri Worker'a gelir.
   "assets": {
     "directory": "./dist",
