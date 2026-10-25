@@ -20,6 +20,7 @@ import { startOfDay } from 'date-fns/startOfDay';
 import { tr } from 'date-fns/locale/tr';
 import { api } from '../api';
 import * as LucideIcons from 'lucide-react';
+import { CustomerCard } from './CustomerCard';
 
 interface ProjectCardProps {
   project: Project;
@@ -37,6 +38,7 @@ const statusConfig: Record<ProjectStatus, { label: string; color: string; icon: 
 
 export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onChanged }) => {
   const [renewing, setRenewing] = useState(false);
+  const [showCustomerCard, setShowCustomerCard] = useState(false);
   
   const expirationDate = startOfDay(parseISO(project.expiration_date));
   const today = startOfDay(new Date());
@@ -171,6 +173,13 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onCha
             Düzenle
           </button>
           <button 
+            onClick={() => setShowCustomerCard(true)}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-bold text-blue-700 bg-white border border-blue-200 rounded-xl hover:bg-blue-50 transition-colors"
+          >
+            <LucideIcons.Share2 className="w-3.5 h-3.5" />
+            Müşteriye Gönder
+          </button>
+          <button 
             onClick={handleDelete}
             className="flex items-center justify-center w-11 h-11 text-rose-500 bg-white border border-rose-200 rounded-xl hover:bg-rose-50 transition-colors"
           >
@@ -178,6 +187,10 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onCha
           </button>
         </div>
       </div>
+
+      {showCustomerCard && (
+        <CustomerCard project={project} onClose={() => setShowCustomerCard(false)} />
+      )}
     </div>
   );
 };
