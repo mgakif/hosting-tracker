@@ -4,12 +4,12 @@ import { Dashboard } from './components/Dashboard';
 import { Settings } from './components/Settings';
 import { Layout } from './components/Layout';
 import { Auth } from './components/Auth';
-import { supabase, isSupabaseConfigured } from './supabaseClient';
+import { api } from './api';
 import { Project } from './types';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
 const App: React.FC = () => {
-  const [session, setSession] = useState<any>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [appLoading, setAppLoading] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
@@ -17,50 +17,40 @@ const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<'dashboard' | 'settings'>('dashboard');
 
   useEffect(() => {
-    // Check current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setAppLoading(false);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
+    // Mevcut oturumu kontrol et
+    api.me()
+      .then(({ email }) => setUserEmail(email))
+      .catch(() => setUserEmail(null))
+      .finally(() => setAppLoading(false));
   }, []);
 
+  const handleLogout = async () => {
+    await api.logout().catch(() => {});
+    setUserEmail(null);
+    setProjects([]);
+  };
+
   const fetchProjects = async () => {
-    if (!isSupabaseConfigured() || !session) {
+    if (!userEmail) {
       return;
     }
 
     setLoading(true);
     setError(null);
     try {
-      const { data, error: supabaseError } = await supabase
-        .from('projects')
-        .select('*')
-        .order('expiration_date', { ascending: true });
-
-      if (supabaseError) {
-        setError(`Veri çekme hatası: ${supabaseError.message}`);
-      } else {
-        setProjects(data || []);
-      }
+      setProjects(await api.listProjects());
     } catch (err: any) {
-      setError('Veri tabanına bağlanılamadı.');
+      setError(`Veri çekme hatası: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (session) {
+    if (userEmail) {
       fetchProjects();
     }
-  }, [currentView, session]);
+  }, [currentView, userEmail]);
 
   if (appLoading) {
     return (
@@ -70,12 +60,12 @@ const App: React.FC = () => {
     );
   }
 
-  if (!session) {
-    return <Auth />;
+  if (!userEmail) {
+    return <Auth onLogin={setUserEmail} />;
   }
 
   return (
-    <Layout activeView={currentView} onNavigate={setCurrentView} userEmail={session.user.email}>
+    <Layout activeView={currentView} onNavigate={setCurrentView} userEmail={userEmail} onLogout={handleLogout}>
       {currentView === 'dashboard' ? (
         <div className="space-y-6">
           {error && (

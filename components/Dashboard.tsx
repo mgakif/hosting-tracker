@@ -37,7 +37,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ projects, onRefresh, loadi
 
   const handleSlackCheck = async () => {
     setSlackSending(true);
-    const result = await checkAndNotifySlack(projects);
+    const result = await checkAndNotifySlack();
     if (result.success) {
       if (result.count > 0) {
         alert(`${result.count} proje için yeni Slack bildirimi gönderildi!`);

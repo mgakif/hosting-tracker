@@ -1,20 +1,44 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# HostTracker – Hosting & Domain Takip Paneli
 
-# Run and deploy your AI Studio app
+Yıllık hosting/domain yenileme tarihlerini takip eden, yaklaşan ödemeleri Slack'e bildiren panel.
 
-This contains everything you need to run your app locally.
+**Altyapı:** React (Vite) + Cloudflare Worker + Cloudflare D1 (SQLite).
+D1, Supabase'in ücretsiz planı gibi kullanılmayınca uyumaz/kapanmaz. Slack hatırlatıcısı da
+artık tarayıcıda değil, Worker'da her gün 09:00'da (TR) cron ile otomatik çalışır.
 
-View your app in AI Studio: https://ai.studio/apps/drive/10h0PZ3NO4nB9EuErPRr3L6wwhsiQKyN-
+## İlk kurulum (bir kez)
 
-## Run Locally
+```bash
+npm install
+npx wrangler login                          # Cloudflare hesabınla giriş
+npx wrangler d1 create hosting-tracker      # çıkan database_id'yi wrangler.jsonc'ye yapıştır
+npm run db:migrate                          # tabloları oluştur
+npx wrangler secret put ADMIN_PASSWORD      # panel şifresi
+npx wrangler secret put SESSION_SECRET      # uzun rastgele metin (örn. `openssl rand -hex 32`)
+npm run deploy
+```
 
-**Prerequisites:**  Node.js
+Giriş e-postası `wrangler.jsonc` içindeki `ADMIN_EMAIL` değişkenidir.
 
+## Supabase'den verileri taşıma (bir kez)
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+1. Supabase projesini son bir kez uyandır (Restore).
+2. Supabase → Project Settings → API'den **Project URL** ve **service_role** key'i al.
+3. Çalıştır:
+
+```bash
+SUPABASE_URL=https://xyz.supabase.co SUPABASE_KEY=<service_role> \
+  node scripts/supabase-to-d1.mjs > scripts/import.sql
+npx wrangler d1 execute hosting-tracker --remote --file=scripts/import.sql
+```
+
+Projeler ve Slack webhook ayarı aktarılır. Ardından Supabase projesini silebilirsin.
+
+## Yerel geliştirme
+
+```bash
+cp .dev.vars.example .dev.vars
+npm run db:migrate:local
+npm run dev:api   # Worker + yerel D1 → http://localhost:8787
+npm run dev       # Vite → http://localhost:3000 (/api isteklerini 8787'ye yönlendirir)
+```

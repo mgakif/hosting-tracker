@@ -18,7 +18,7 @@ import { addYears } from 'date-fns/addYears';
 import { parseISO } from 'date-fns/parseISO';
 import { startOfDay } from 'date-fns/startOfDay';
 import { tr } from 'date-fns/locale/tr';
-import { supabase, isSupabaseConfigured } from '../supabaseClient';
+import { api } from '../api';
 import * as LucideIcons from 'lucide-react';
 
 interface ProjectCardProps {
@@ -45,27 +45,17 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onCha
   const StatusIcon = statusConfig[project.status]?.icon || LucideIcons.Clock;
 
   const handleDelete = async () => {
-    if (!isSupabaseConfigured()) {
-      alert("Lütfen önce Ayarlar sayfasından Supabase bağlantısını kurun.");
-      return;
-    }
-
     if (confirm(`"${project.project_name}" projesini silmek istediğinize emin misiniz?`)) {
-      const { error } = await supabase.from('projects').delete().eq('id', project.id);
-      if (error) {
-        alert('Silme hatası: ' + error.message);
-      } else {
+      try {
+        await api.deleteProject(project.id);
         onChanged();
+      } catch (err: any) {
+        alert('Silme hatası: ' + err.message);
       }
     }
   };
 
   const handleRenew = async () => {
-    if (!isSupabaseConfigured()) {
-      alert("Bağlantı ayarları eksik. Lütfen Ayarlar sayfasına gidin.");
-      return;
-    }
-
     const nextYearDate = addYears(expirationDate, 1);
     const confirmText = `${project.project_name} projesini +1 yıl uzatmak istiyor musunuz?\n\n` +
                         `Yeni Bitiş: ${format(nextYearDate, 'dd MMMM yyyy', { locale: tr })}\n` +
@@ -75,17 +65,12 @@ export const ProjectCard: React.FC<ProjectCardProps> = ({ project, onEdit, onCha
       setRenewing(true);
       try {
         const newExpirationStr = format(nextYearDate, 'yyyy-MM-dd');
-        const { error } = await supabase
-          .from('projects')
-          .update({
-            expiration_date: newExpirationStr,
-            status: 'odendi' as ProjectStatus,
-            last_paid_amount: project.price || 0,
-            slack_notified_at: null
-          })
-          .eq('id', project.id);
-
-        if (error) throw error;
+        await api.updateProject(project.id, {
+          expiration_date: newExpirationStr,
+          status: 'odendi' as ProjectStatus,
+          last_paid_amount: project.price || 0,
+          slack_notified_at: null
+        });
         onChanged();
       } catch (err: any) {
         alert('İşlem başarısız: ' + (err.message || 'Veri tabanı hatası.'));

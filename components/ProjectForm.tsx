@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Project, ProjectStatus } from '../types';
 import { X, DollarSign } from 'lucide-react';
-import { supabase } from '../supabaseClient';
+import { api } from '../api';
 
 interface ProjectFormProps {
   project?: Project;
@@ -27,27 +27,11 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ project, onClose, onSu
 
     try {
       if (project) {
-        const { error } = await supabase
-          .from('projects')
-          .update(formData)
-          .eq('id', project.id);
-        if (error) {
-          console.error('Update error:', error);
-          alert('Güncelleme hatası: ' + error.message);
-        } else {
-          onSuccess();
-        }
+        await api.updateProject(project.id, formData);
       } else {
-        const { error } = await supabase
-          .from('projects')
-          .insert([formData]);
-        if (error) {
-          console.error('Insert error:', error);
-          alert('Ekleme hatası: ' + error.message);
-        } else {
-          onSuccess();
-        }
+        await api.createProject(formData);
       }
+      onSuccess();
     } catch (err: any) {
       console.error('Form submit error:', err);
       alert('İşlem sırasında bir hata oluştu: ' + (err.message || err));

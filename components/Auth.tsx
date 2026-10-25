@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { supabase } from '../supabaseClient';
+import { api } from '../api';
 import { Lock, Mail, Loader2, Calendar, ChevronRight } from 'lucide-react';
 
-export const Auth: React.FC = () => {
+export const Auth: React.FC<{ onLogin: (email: string) => void }> = ({ onLogin }) => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -15,8 +15,8 @@ export const Auth: React.FC = () => {
     setMessage(null);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
+      const result = await api.login(email, password);
+      onLogin(result.email);
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message || 'Giriş yapılamadı. Bilgilerinizi kontrol edin.' });
     } finally {

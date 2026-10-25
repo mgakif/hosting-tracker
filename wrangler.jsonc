@@ -1,0 +1,35 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "hosting-tracker",
+  "main": "worker/index.ts",
+  "compatibility_date": "2025-10-01",
+
+  // Vite çıktısı (dist) statik olarak sunulur; /api/* istekleri Worker'a gelir.
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "hosting-tracker",
+      // `npx wrangler d1 create hosting-tracker` çıktısındaki id'yi buraya yapıştırın.
+      "database_id": "REPLACE_WITH_DATABASE_ID",
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // Her gün 06:00 UTC (09:00 TR) Slack hatırlatıcısı.
+  "triggers": {
+    "crons": ["0 6 * * *"]
+  },
+
+  "vars": {
+    "ADMIN_EMAIL": "mgakif@gmail.com"
+  }
+  // Gizli değerler (wrangler secret put ile):
+  //   ADMIN_PASSWORD  - panel giriş şifresi
+  //   SESSION_SECRET  - oturum çerezini imzalamak için uzun rastgele bir metin
+}

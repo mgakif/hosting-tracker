@@ -1,0 +1,3 @@
+# Yerel geliştirme için: bu dosyayı .dev.vars olarak kopyalayın
+ADMIN_PASSWORD=yerel-sifre
+SESSION_SECRET=uzun-rastgele-bir-metin

@@ -1,21 +1,20 @@
 
 import React from 'react';
 import { Calendar, Settings as SettingsIcon, LayoutDashboard, LogOut, User, Menu } from 'lucide-react';
-import { supabase } from '../supabaseClient';
 
 interface LayoutProps {
   children: React.ReactNode;
   activeView: 'dashboard' | 'settings';
   onNavigate: (view: 'dashboard' | 'settings') => void;
   userEmail?: string;
+  onLogout: () => void;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, activeView, onNavigate, userEmail }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, activeView, onNavigate, userEmail, onLogout }) => {
   const handleLogout = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    const { error } = await supabase.auth.signOut();
-    if (error) alert("Çıkış yapılırken hata oluştu: " + error.message);
+    onLogout();
   };
 
   const navItemClass = (view: string) => 

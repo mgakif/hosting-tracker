@@ -1,72 +1,27 @@
-
 import React, { useState, useEffect } from 'react';
-import { Bell, Save, ShieldCheck, Database, AlertTriangle, RefreshCcw, Lock, Loader2 } from 'lucide-react';
-import { isConfiguredByEnv, supabase } from '../supabaseClient';
+import { Bell, Save, ShieldCheck, Loader2 } from 'lucide-react';
+import { api } from '../api';
 
 export const Settings: React.FC = () => {
-  const isEnvActive = isConfiguredByEnv();
-  
-  const [settings, setSettings] = useState({
-    slack_webhook_url: '',
-    supabase_url: '',
-    supabase_anon_key: ''
-  });
+  const [settings, setSettings] = useState({ slack_webhook_url: '' });
   const [loading, setLoading] = useState(true);
   const [isSaved, setIsSaved] = useState(false);
-  const [needsReload, setNeedsReload] = useState(false);
 
   useEffect(() => {
-    const fetchSettings = async () => {
-      setLoading(true);
-      
-      // Slack URL'sini Supabase'den çek
-      const { data } = await supabase
-        .from('settings')
-        .select('value')
-        .eq('key', 'slack_webhook_url')
-        .single();
-
-      // Supabase LocalStorage fallback values
-      const lsUrl = localStorage.getItem('supabase_url') || '';
-      const lsKey = localStorage.getItem('supabase_anon_key') || '';
-      
-      setSettings({
-        slack_webhook_url: data?.value || '',
-        supabase_url: isEnvActive ? "Environment'tan okunuyor" : lsUrl,
-        supabase_anon_key: isEnvActive ? "••••••••••••••••" : lsKey
-      });
-      
-      setLoading(false);
-    };
-
-    fetchSettings();
-  }, [isEnvActive]);
+    api.getSettings()
+      .then((data) => setSettings({ slack_webhook_url: data.slack_webhook_url || '' }))
+      .catch((err) => alert('Ayarlar yüklenemedi: ' + err.message))
+      .finally(() => setLoading(false));
+  }, []);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Slack URL'sini Supabase'e kaydet (Upsert)
-    const { error: slackError } = await supabase
-      .from('settings')
-      .upsert({ key: 'slack_webhook_url', value: settings.slack_webhook_url });
-
-    if (slackError) {
-      alert("Slack URL kaydedilirken hata oluştu: " + slackError.message);
+    try {
+      await api.saveSettings(settings);
+    } catch (err: any) {
+      alert("Slack URL kaydedilirken hata oluştu: " + err.message);
       return;
     }
-
-    // Supabase bağlantı bilgilerini LocalStorage'a kaydet (Eğer env'den gelmiyorsa)
-    if (!isEnvActive) {
-      const oldUrl = localStorage.getItem('supabase_url');
-      const oldKey = localStorage.getItem('supabase_anon_key');
-      const dbChanged = oldUrl !== settings.supabase_url || oldKey !== settings.supabase_anon_key;
-
-      localStorage.setItem('supabase_url', settings.supabase_url);
-      localStorage.setItem('supabase_anon_key', settings.supabase_anon_key);
-      
-      if (dbChanged) setNeedsReload(true);
-    }
-    
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
   };
@@ -74,14 +29,10 @@ export const Settings: React.FC = () => {
   const testSlack = async () => {
     if (!settings.slack_webhook_url) return alert('Lütfen önce Slack URL girin.');
     try {
-      await fetch(settings.slack_webhook_url, {
-        method: 'POST',
-        body: JSON.stringify({ text: '🚀 HostTracker bağlantısı başarılı!' }),
-        mode: 'no-cors'
-      });
+      await api.testSlack(settings.slack_webhook_url);
       alert('Test mesajı gönderildi!');
-    } catch (e) {
-      alert('Slack test hatası.');
+    } catch (err: any) {
+      alert('Slack test hatası: ' + err.message);
     }
   };
 
@@ -103,73 +54,7 @@ export const Settings: React.FC = () => {
         <p className="text-slate-500 font-medium">Uygulama bağlantılarını ve bildirim tercihlerini yönetin.</p>
       </div>
 
-      {isEnvActive && (
-        <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex items-center gap-3 text-emerald-800 shadow-sm">
-          <ShieldCheck className="w-5 h-5 shrink-0" />
-          <p className="text-xs font-bold uppercase tracking-tight">
-            Sistem üretim modunda (Production). Supabase bağlantı bilgileri ortam değişkenlerinden güvenli bir şekilde alınıyor.
-          </p>
-        </div>
-      )}
-
-      {needsReload && (
-        <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-center justify-between animate-pulse">
-          <div className="flex items-center gap-3 text-amber-800">
-            <AlertTriangle className="w-5 h-5" />
-            <span className="text-sm font-bold">Ayarlar değişti. Uygulanması için sayfayı yenileyin.</span>
-          </div>
-          <button 
-            onClick={() => window.location.reload()}
-            className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-black hover:bg-amber-700 transition-colors shadow-lg shadow-amber-600/20"
-          >
-            <RefreshCcw className="w-3.5 h-3.5" />
-            ŞİMDİ YENİLE
-          </button>
-        </div>
-      )}
-
       <form onSubmit={handleSave} className="space-y-6">
-        {/* Supabase Config */}
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-100 flex items-center gap-4 bg-slate-50/50">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600">
-              <Database className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="font-bold text-slate-900">Supabase Bağlantısı</h2>
-                {isEnvActive && <Lock className="w-3.5 h-3.5 text-slate-400" />}
-              </div>
-              <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Veri Depolama (PostgreSQL)</p>
-            </div>
-          </div>
-          
-          <div className="p-6 space-y-5">
-            <div>
-              <label className={labelClasses}>Project URL</label>
-              <input 
-                type="text"
-                disabled={isEnvActive}
-                value={settings.supabase_url}
-                onChange={(e) => setSettings({...settings, supabase_url: e.target.value})}
-                placeholder="https://xyz.supabase.co"
-                className={inputClasses}
-              />
-            </div>
-            <div>
-              <label className={labelClasses}>Anon Key / API Key</label>
-              <input 
-                type="password"
-                disabled={isEnvActive}
-                value={settings.supabase_anon_key}
-                onChange={(e) => setSettings({...settings, supabase_anon_key: e.target.value})}
-                placeholder={isEnvActive ? "Environment üzerinden yüklendi" : "Supabase Anon Key"}
-                className={inputClasses}
-              />
-            </div>
-          </div>
-        </div>
-
         {/* Slack Config */}
         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex items-center gap-4 bg-slate-50/50">
@@ -178,7 +63,7 @@ export const Settings: React.FC = () => {
             </div>
             <div>
               <h2 className="font-bold text-slate-900">Slack Bildirimleri</h2>
-              <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Otomatik Hatırlatıcı</p>
+              <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Her gün 09:00'da otomatik hatırlatıcı</p>
             </div>
           </div>
 
@@ -210,7 +95,7 @@ export const Settings: React.FC = () => {
           className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-sm hover:bg-black transition-all shadow-xl shadow-slate-900/20 flex items-center justify-center gap-3 active:scale-[0.98]"
         >
           {isSaved ? <ShieldCheck className="w-5 h-5 text-emerald-400" /> : <Save className="w-5 h-5" />}
-          {isSaved ? 'BULUT ÜZERİNE KAYDEDİLDİ' : 'AYARLARI KAYDET'}
+          {isSaved ? 'KAYDEDİLDİ' : 'AYARLARI KAYDET'}
         </button>
       </form>
     </div>
