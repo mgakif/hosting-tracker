@@ -15,3 +15,11 @@ export interface Project {
 }
 
 export type ProjectFilter = 'all' | '7days' | '30days' | 'borc';
+
+export interface LastNotify {
+  at: string;
+  source: 'cron' | 'manuel';
+  success: boolean;
+  count: number;
+  message?: string;
+}

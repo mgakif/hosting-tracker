@@ -1,4 +1,4 @@
-import { Project } from './types';
+import { LastNotify, Project } from './types';
 
 /**
  * Worker'daki /api uç noktaları için küçük bir istemci.
@@ -34,7 +34,8 @@ export const api = {
     request(`/projects/${id}`, send('PUT', data)),
   deleteProject: (id: string) => request(`/projects/${id}`, send('DELETE')),
 
-  getSettings: () => request<{ slack_webhook_url: string }>('/settings'),
+  getSettings: () =>
+    request<{ slack_webhook_url: string; last_notify: LastNotify | null }>('/settings'),
   saveSettings: (data: { slack_webhook_url: string }) => request('/settings', send('PUT', data)),
 
   testSlack: (url?: string) => request('/slack/test', send('POST', { url })),

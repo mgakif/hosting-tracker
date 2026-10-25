@@ -163,6 +163,25 @@ const notifySlack = async (env: Env) => {
   return { success: true, count: toNotify.length };
 };
 
+/** Bildirim kontrolünü çalıştırır ve sonucunu settings tablosuna kaydeder. */
+const runNotify = async (env: Env, source: 'cron' | 'manuel') => {
+  let result: { success: boolean; count: number; message?: string };
+  try {
+    result = await notifySlack(env);
+  } catch (err: any) {
+    result = { success: false, count: 0, message: err?.message || 'Bilinmeyen hata.' };
+  }
+  const record = { at: new Date().toISOString(), source, ...result };
+  await env.DB.prepare(
+    `INSERT INTO settings (key, value) VALUES ('last_notify', ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+  )
+    .bind(JSON.stringify(record))
+    .run();
+  console.log('Slack bildirim kontrolü:', JSON.stringify(record));
+  return result;
+};
+
 const todayOf = (iso: string) =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Istanbul' }).format(new Date(iso));
 
@@ -241,7 +260,12 @@ const handleApi = async (request: Request, env: Env, url: URL): Promise<Response
   // Ayarlar
   if (pathname === '/api/settings') {
     if (method === 'GET') {
-      return json({ slack_webhook_url: await getSlackUrl(env) });
+      const last = await env.DB.prepare("SELECT value FROM settings WHERE key = 'last_notify'")
+        .first<{ value: string }>();
+      return json({
+        slack_webhook_url: await getSlackUrl(env),
+        last_notify: last ? JSON.parse(last.value) : null,
+      });
     }
     if (method === 'PUT') {
       const { slack_webhook_url = '' } = await request.json<any>();
@@ -265,7 +289,7 @@ const handleApi = async (request: Request, env: Env, url: URL): Promise<Response
   }
 
   if (pathname === '/api/slack/notify' && method === 'POST') {
-    return json(await notifySlack(env));
+    return json(await runNotify(env, 'manuel'));
   }
 
   return fail('Bulunamadı.', 404);
@@ -285,6 +309,6 @@ export default {
   },
 
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
-    ctx.waitUntil(notifySlack(env).then((r) => console.log('Slack cron:', JSON.stringify(r))));
+    ctx.waitUntil(runNotify(env, 'cron'));
   },
 };

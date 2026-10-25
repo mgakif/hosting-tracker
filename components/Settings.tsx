@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Save, ShieldCheck, Loader2 } from 'lucide-react';
+import { Bell, Save, ShieldCheck, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { api } from '../api';
+import { LastNotify } from '../types';
 
 export const Settings: React.FC = () => {
   const [settings, setSettings] = useState({ slack_webhook_url: '' });
+  const [lastNotify, setLastNotify] = useState<LastNotify | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
     api.getSettings()
-      .then((data) => setSettings({ slack_webhook_url: data.slack_webhook_url || '' }))
+      .then((data) => {
+        setSettings({ slack_webhook_url: data.slack_webhook_url || '' });
+        setLastNotify(data.last_notify);
+      })
       .catch((err) => alert('Ayarlar yüklenemedi: ' + err.message))
       .finally(() => setLoading(false));
   }, []);
@@ -86,6 +91,29 @@ export const Settings: React.FC = () => {
                 placeholder="https://hooks.slack.com/services/..."
                 className={inputClasses}
               />
+            </div>
+
+            <div className={`p-4 rounded-2xl border flex items-start gap-3 ${
+              !lastNotify ? 'bg-slate-50 border-slate-200 text-slate-600'
+              : lastNotify.success ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-rose-50 border-rose-200 text-rose-800'
+            }`}>
+              {lastNotify && !lastNotify.success
+                ? <XCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                : <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />}
+              <div>
+                <p className="text-xs font-black uppercase tracking-wider">Son Bildirim Kontrolü</p>
+                {lastNotify ? (
+                  <p className="text-xs font-medium mt-1">
+                    {new Date(lastNotify.at).toLocaleString('tr-TR')} ({lastNotify.source === 'cron' ? 'otomatik' : 'manuel'}) –{' '}
+                    {lastNotify.success
+                      ? (lastNotify.count > 0 ? `${lastNotify.count} proje bildirildi` : (lastNotify.message || 'Bildirilecek proje yok'))
+                      : `Hata: ${lastNotify.message}`}
+                  </p>
+                ) : (
+                  <p className="text-xs font-medium mt-1">Henüz çalışmadı. İlk otomatik kontrol her gün 09:00'da.</p>
+                )}
+              </div>
             </div>
           </div>
         </div>

@@ -20,6 +20,11 @@
     }
   ],
 
+  // Cloudflare panelinde Workers > hosting-tracker > Logs altında cron çalışmaları görünür.
+  "observability": {
+    "enabled": true
+  },
+
   // Her gün 06:00 UTC (09:00 TR) Slack hatırlatıcısı.
   "triggers": {
     "crons": ["0 6 * * *"]
