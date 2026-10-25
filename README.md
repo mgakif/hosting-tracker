@@ -20,6 +20,16 @@ npm run deploy
 
 Giriş e-postası `wrangler.jsonc` içindeki `ADMIN_EMAIL` değişkenidir.
 
+## E-posta bildirimi (isteğe bağlı)
+
+1. [resend.com](https://resend.com)'a **bildirim almak istediğin e-posta adresiyle** ücretsiz kaydol.
+2. API Keys → Create API Key (Sending access yeterli).
+3. `npx wrangler secret put RESEND_API_KEY` ile anahtarı gir.
+4. Panelde Ayarlar → E-posta Adresi → "Test E-postası Gönder".
+
+Kendi domainini Resend'de doğrulamadan gönderici `onboarding@resend.dev` olur ve sadece Resend
+hesabının e-postasına mail atılabilir. Domain doğrularsan `MAIL_FROM` değişkeniyle göndericiyi değiştir.
+
 ## Supabase'den verileri taşıma (bir kez)
 
 1. Supabase projesini son bir kez uyandır (Restore).

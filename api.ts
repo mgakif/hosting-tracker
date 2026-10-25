@@ -35,10 +35,17 @@ export const api = {
   deleteProject: (id: string) => request(`/projects/${id}`, send('DELETE')),
 
   getSettings: () =>
-    request<{ slack_webhook_url: string; last_notify: LastNotify | null }>('/settings'),
-  saveSettings: (data: { slack_webhook_url: string }) => request('/settings', send('PUT', data)),
+    request<{
+      slack_webhook_url: string;
+      notify_email: string;
+      email_enabled: boolean;
+      last_notify: LastNotify | null;
+    }>('/settings'),
+  saveSettings: (data: { slack_webhook_url: string; notify_email: string }) =>
+    request('/settings', send('PUT', data)),
 
   testSlack: (url?: string) => request('/slack/test', send('POST', { url })),
+  testEmail: (email?: string) => request('/email/test', send('POST', { email })),
   notifySlack: () =>
     request<{ success: boolean; count: number; message?: string }>('/slack/notify', send('POST')),
 };

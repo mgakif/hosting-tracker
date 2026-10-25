@@ -36,4 +36,6 @@
   // Gizli değerler (wrangler secret put ile):
   //   ADMIN_PASSWORD  - panel giriş şifresi
   //   SESSION_SECRET  - oturum çerezini imzalamak için uzun rastgele bir metin
+  //   RESEND_API_KEY  - (isteğe bağlı) e-posta bildirimleri için resend.com API anahtarı
+  // İsteğe bağlı değişken: MAIL_FROM (varsayılan: HostTracker <onboarding@resend.dev>)
 }

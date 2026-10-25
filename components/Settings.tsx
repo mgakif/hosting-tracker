@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Save, ShieldCheck, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Bell, Save, ShieldCheck, Loader2, CheckCircle2, XCircle, Mail } from 'lucide-react';
 import { api } from '../api';
 import { LastNotify } from '../types';
 
 export const Settings: React.FC = () => {
-  const [settings, setSettings] = useState({ slack_webhook_url: '' });
+  const [settings, setSettings] = useState({ slack_webhook_url: '', notify_email: '' });
+  const [emailEnabled, setEmailEnabled] = useState(false);
   const [lastNotify, setLastNotify] = useState<LastNotify | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSaved, setIsSaved] = useState(false);
@@ -12,7 +13,8 @@ export const Settings: React.FC = () => {
   useEffect(() => {
     api.getSettings()
       .then((data) => {
-        setSettings({ slack_webhook_url: data.slack_webhook_url || '' });
+        setSettings({ slack_webhook_url: data.slack_webhook_url || '', notify_email: data.notify_email || '' });
+        setEmailEnabled(data.email_enabled);
         setLastNotify(data.last_notify);
       })
       .catch((err) => alert('Ayarlar yüklenemedi: ' + err.message))
@@ -29,6 +31,16 @@ export const Settings: React.FC = () => {
     }
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 3000);
+  };
+
+  const testEmail = async () => {
+    if (!settings.notify_email) return alert('Lütfen önce e-posta adresi girin.');
+    try {
+      await api.testEmail(settings.notify_email);
+      alert('Test e-postası gönderildi! Gelen kutunu (ve spam klasörünü) kontrol et.');
+    } catch (err: any) {
+      alert('E-posta test hatası: ' + err.message);
+    }
   };
 
   const testSlack = async () => {
@@ -67,7 +79,7 @@ export const Settings: React.FC = () => {
               <Bell className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="font-bold text-slate-900">Slack Bildirimleri</h2>
+              <h2 className="font-bold text-slate-900">Bildirimler</h2>
               <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Her gün 09:00'da otomatik hatırlatıcı</p>
             </div>
           </div>
@@ -91,6 +103,36 @@ export const Settings: React.FC = () => {
                 placeholder="https://hooks.slack.com/services/..."
                 className={inputClasses}
               />
+            </div>
+
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className={`${labelClasses} flex items-center gap-1.5`}>
+                  <Mail className="w-3.5 h-3.5" /> E-posta Adresi
+                </label>
+                {emailEnabled && (
+                  <button
+                    type="button"
+                    onClick={testEmail}
+                    className="text-[10px] font-black text-blue-600 hover:text-blue-800 uppercase"
+                  >
+                    Test E-postası Gönder
+                  </button>
+                )}
+              </div>
+              <input
+                type="email"
+                disabled={!emailEnabled}
+                value={settings.notify_email}
+                onChange={(e) => setSettings({...settings, notify_email: e.target.value})}
+                placeholder="ornek@gmail.com"
+                className={inputClasses}
+              />
+              {!emailEnabled && (
+                <p className="text-[11px] text-slate-500 mt-1.5">
+                  E-posta için Cloudflare'de <code className="font-mono">RESEND_API_KEY</code> gizli değerini tanımlayın.
+                </p>
+              )}
             </div>
 
             <div className={`p-4 rounded-2xl border flex items-start gap-3 ${

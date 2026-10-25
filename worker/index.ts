@@ -10,6 +10,8 @@ interface Env {
   ADMIN_EMAIL: string;
   ADMIN_PASSWORD: string;
   SESSION_SECRET: string;
+  RESEND_API_KEY?: string;
+  MAIL_FROM?: string;
 }
 
 const STATUSES = ['odendi', 'iptal', 'durduruldu', 'borc', 'ertelendi'];
@@ -102,14 +104,22 @@ const pickFields = (body: Record<string, unknown>) => {
   return data;
 };
 
-// ---------- Slack ----------
+// ---------- Bildirimler (Slack + E-posta) ----------
 
-const getSlackUrl = async (env: Env) => {
+const getSetting = async (env: Env, key: string) => {
   const row = await env.DB.prepare('SELECT value FROM settings WHERE key = ?')
-    .bind('slack_webhook_url')
+    .bind(key)
     .first<{ value: string | null }>();
   return row?.value || '';
 };
+
+const setSetting = (env: Env, key: string, value: string) =>
+  env.DB.prepare(
+    `INSERT INTO settings (key, value) VALUES (?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+  ).bind(key, value);
+
+const getSlackUrl = (env: Env) => getSetting(env, 'slack_webhook_url');
 
 const postToSlack = (url: string, text: string) =>
   fetch(url, {
@@ -118,11 +128,59 @@ const postToSlack = (url: string, text: string) =>
     body: JSON.stringify({ text }),
   });
 
-/** 7 gün veya daha az kalan, ödenmemiş ve aktif projeler için günde bir bildirim gönderir. */
-const notifySlack = async (env: Env) => {
+const escapeHtml = (v: unknown) =>
+  String(v ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+/** Resend API ile e-posta gönderir. */
+const sendEmail = async (env: Env, to: string, subject: string, html: string) => {
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: env.MAIL_FROM || 'HostTracker <onboarding@resend.dev>',
+      to: [to],
+      subject,
+      html,
+    }),
+  });
+  if (!res.ok) throw new Error(`E-posta gönderilemedi (${res.status}): ${await res.text()}`);
+};
+
+const emailHtml = (projects: Record<string, any>[], today: string) => `
+<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#0f172a">
+  <h2 style="margin:0 0 4px">⚠️ Süresi yaklaşan hostingler</h2>
+  <p style="margin:0 0 16px;color:#64748b">7 gün veya daha az kalan, ödemesi alınmamış projeler</p>
+  <table style="width:100%;border-collapse:collapse;font-size:14px">
+    <tr style="background:#f1f5f9;text-align:left">
+      <th style="padding:8px">Proje</th><th style="padding:8px">Kalan</th>
+      <th style="padding:8px">Durum</th><th style="padding:8px;text-align:right">Ücret</th>
+    </tr>
+    ${projects
+      .map(
+        (p) => `<tr style="border-top:1px solid #e2e8f0">
+      <td style="padding:8px"><b>${escapeHtml(p.project_name)}</b><br>
+        <span style="color:#64748b">${escapeHtml(p.domain)}${p.hosting_company ? ' · ' + escapeHtml(p.hosting_company) : ''}</span></td>
+      <td style="padding:8px;color:#e11d48;font-weight:bold">${daysBetween(today, p.expiration_date)} gün</td>
+      <td style="padding:8px">${escapeHtml(String(p.status).toUpperCase())}</td>
+      <td style="padding:8px;text-align:right">${p.price || 0} TL</td>
+    </tr>`,
+      )
+      .join('')}
+  </table>
+</div>`;
+
+/**
+ * 7 gün veya daha az kalan, ödenmemiş ve aktif projeler için günde bir bildirim gönderir.
+ * Ayarlı olan her kanala (Slack, e-posta) gider; en az biri başarılıysa projeler "bildirildi" sayılır.
+ */
+const notifyUpcoming = async (env: Env) => {
   const slackUrl = await getSlackUrl(env);
-  if (!slackUrl) {
-    return { success: false, count: 0, message: "Slack Webhook URL'si ayarlanmamış." };
+  const email = env.RESEND_API_KEY ? await getSetting(env, 'notify_email') : '';
+  if (!slackUrl && !email) {
+    return { success: false, count: 0, message: 'Hiçbir bildirim kanalı (Slack / e-posta) ayarlanmamış.' };
   }
 
   const today = todayTR();
@@ -142,15 +200,30 @@ const notifySlack = async (env: Env) => {
     return { success: true, count: 0, message: 'Bugün için yeni bildirim yok.' };
   }
 
-  let text = '⚠️ *HostTracker: Günlük Ödeme Hatırlatıcısı*\n\n';
-  for (const p of toNotify) {
-    const daysLeft = daysBetween(today, p.expiration_date);
-    text += `• *${p.project_name}* (${p.domain})\n   ⏰ ${daysLeft} gün kaldı | Durum: *${String(p.status).toUpperCase()}* | Ücret: ${p.price || 0} TL\n\n`;
+  const sent: string[] = [];
+  const errors: string[] = [];
+
+  if (slackUrl) {
+    let text = '⚠️ *HostTracker: Günlük Ödeme Hatırlatıcısı*\n\n';
+    for (const p of toNotify) {
+      const daysLeft = daysBetween(today, p.expiration_date);
+      text += `• *${p.project_name}* (${p.domain})\n   ⏰ ${daysLeft} gün kaldı | Durum: *${String(p.status).toUpperCase()}* | Ücret: ${p.price || 0} TL\n\n`;
+    }
+    const res = await postToSlack(slackUrl, text).catch(() => null);
+    res?.ok ? sent.push('Slack') : errors.push(`Slack hata döndürdü: ${res?.status ?? 'bağlantı yok'}`);
   }
 
-  const res = await postToSlack(slackUrl, text);
-  if (!res.ok) {
-    return { success: false, count: 0, message: `Slack hata döndürdü: ${res.status}` };
+  if (email) {
+    try {
+      await sendEmail(env, email, `⚠️ ${toNotify.length} hostingin süresi doluyor`, emailHtml(toNotify, today));
+      sent.push('E-posta');
+    } catch (err: any) {
+      errors.push(err.message);
+    }
+  }
+
+  if (sent.length === 0) {
+    return { success: false, count: 0, message: errors.join(' | ') };
   }
 
   const now = new Date().toISOString();
@@ -160,25 +233,24 @@ const notifySlack = async (env: Env) => {
     ),
   );
 
-  return { success: true, count: toNotify.length };
+  return {
+    success: true,
+    count: toNotify.length,
+    message: `Gönderildi: ${sent.join(', ')}${errors.length ? ` | Hata: ${errors.join(' | ')}` : ''}`,
+  };
 };
 
 /** Bildirim kontrolünü çalıştırır ve sonucunu settings tablosuna kaydeder. */
 const runNotify = async (env: Env, source: 'cron' | 'manuel') => {
   let result: { success: boolean; count: number; message?: string };
   try {
-    result = await notifySlack(env);
+    result = await notifyUpcoming(env);
   } catch (err: any) {
     result = { success: false, count: 0, message: err?.message || 'Bilinmeyen hata.' };
   }
   const record = { at: new Date().toISOString(), source, ...result };
-  await env.DB.prepare(
-    `INSERT INTO settings (key, value) VALUES ('last_notify', ?)
-     ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-  )
-    .bind(JSON.stringify(record))
-    .run();
-  console.log('Slack bildirim kontrolü:', JSON.stringify(record));
+  await setSetting(env, 'last_notify', JSON.stringify(record)).run();
+  console.log('Bildirim kontrolü:', JSON.stringify(record));
   return result;
 };
 
@@ -260,21 +332,20 @@ const handleApi = async (request: Request, env: Env, url: URL): Promise<Response
   // Ayarlar
   if (pathname === '/api/settings') {
     if (method === 'GET') {
-      const last = await env.DB.prepare("SELECT value FROM settings WHERE key = 'last_notify'")
-        .first<{ value: string }>();
+      const last = await getSetting(env, 'last_notify');
       return json({
         slack_webhook_url: await getSlackUrl(env),
-        last_notify: last ? JSON.parse(last.value) : null,
+        notify_email: await getSetting(env, 'notify_email'),
+        email_enabled: !!env.RESEND_API_KEY,
+        last_notify: last ? JSON.parse(last) : null,
       });
     }
     if (method === 'PUT') {
-      const { slack_webhook_url = '' } = await request.json<any>();
-      await env.DB.prepare(
-        `INSERT INTO settings (key, value) VALUES ('slack_webhook_url', ?)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-      )
-        .bind(String(slack_webhook_url))
-        .run();
+      const { slack_webhook_url = '', notify_email = '' } = await request.json<any>();
+      await env.DB.batch([
+        setSetting(env, 'slack_webhook_url', String(slack_webhook_url).trim()),
+        setSetting(env, 'notify_email', String(notify_email).trim()),
+      ]);
       return json({ ok: true });
     }
   }
@@ -286,6 +357,15 @@ const handleApi = async (request: Request, env: Env, url: URL): Promise<Response
     if (!target) return fail("Slack Webhook URL'si yok.");
     const res = await postToSlack(target, '🚀 HostTracker bağlantısı başarılı!');
     return res.ok ? json({ ok: true }) : fail(`Slack hata döndürdü: ${res.status}`, 502);
+  }
+
+  if (pathname === '/api/email/test' && method === 'POST') {
+    if (!env.RESEND_API_KEY) return fail('RESEND_API_KEY tanımlı değil.');
+    const { email: to } = await request.json<any>().catch(() => ({}));
+    const target = to || (await getSetting(env, 'notify_email'));
+    if (!target) return fail('E-posta adresi yok.');
+    await sendEmail(env, target, '🚀 HostTracker e-posta testi', '<p>HostTracker e-posta bildirimleri çalışıyor.</p>');
+    return json({ ok: true });
   }
 
   if (pathname === '/api/slack/notify' && method === 'POST') {
