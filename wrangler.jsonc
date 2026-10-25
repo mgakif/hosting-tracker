@@ -15,8 +15,7 @@
     {
       "binding": "DB",
       "database_name": "hosting-tracker",
-      // `npx wrangler d1 create hosting-tracker` çıktısındaki id'yi buraya yapıştırın.
-      "database_id": "REPLACE_WITH_DATABASE_ID",
+      "database_id": "0bd8dd91-1f10-4592-8e14-6a9539da1506",
       "migrations_dir": "migrations"
     }
   ],
