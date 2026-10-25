@@ -5,8 +5,11 @@ Yıllık hosting/domain yenileme tarihlerini takip eden, yaklaşan ödemeleri Sl
 **Canlı:** https://takip.bilgigram.com
 
 **Altyapı:** React (Vite) + Cloudflare Worker + Cloudflare D1 (SQLite).
-D1, Supabase'in ücretsiz planı gibi kullanılmayınca uyumaz/kapanmaz. Slack hatırlatıcısı da
-artık tarayıcıda değil, Worker'da her gün 09:00'da (TR) cron ile otomatik çalışır.
+D1, Supabase'in ücretsiz planı gibi kullanılmayınca uyumaz/kapanmaz.
+
+**Hatırlatıcı:** Her gün 09:00'da (TR) Worker cron ile çalışır; bitişine 7 gün veya daha az kalan
+ya da süresi geçmiş projeleri Slack ve e-postayla bildirir (iptal/durdurulanlar hariç). "+1 yıl uzat"
+tarihi ileri attığı için hatırlatma kendiliğinden durur.
 
 ## İlk kurulum (bir kez)
 

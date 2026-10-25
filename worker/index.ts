@@ -149,10 +149,14 @@ const sendEmail = async (env: Env, to: string, subject: string, html: string) =>
   if (!res.ok) throw new Error(`E-posta gönderilemedi (${res.status}): ${await res.text()}`);
 };
 
+// "3 gün kaldı" / "bugün bitiyor" / "2 gün geçti"
+const remainingText = (daysLeft: number) =>
+  daysLeft > 0 ? `${daysLeft} gün kaldı` : daysLeft === 0 ? 'bugün bitiyor' : `${-daysLeft} gün geçti`;
+
 const emailHtml = (projects: Record<string, any>[], today: string) => `
 <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#0f172a">
   <h2 style="margin:0 0 4px">⚠️ Süresi yaklaşan hostingler</h2>
-  <p style="margin:0 0 16px;color:#64748b">7 gün veya daha az kalan, ödemesi alınmamış projeler</p>
+  <p style="margin:0 0 16px;color:#64748b">7 gün içinde biten veya süresi geçmiş, henüz yenilenmemiş projeler</p>
   <table style="width:100%;border-collapse:collapse;font-size:14px">
     <tr style="background:#f1f5f9;text-align:left">
       <th style="padding:8px">Proje</th><th style="padding:8px">Kalan</th>
@@ -163,7 +167,7 @@ const emailHtml = (projects: Record<string, any>[], today: string) => `
         (p) => `<tr style="border-top:1px solid #e2e8f0">
       <td style="padding:8px"><b>${escapeHtml(p.project_name)}</b><br>
         <span style="color:#64748b">${escapeHtml(p.domain)}${p.hosting_company ? ' · ' + escapeHtml(p.hosting_company) : ''}</span></td>
-      <td style="padding:8px;color:#e11d48;font-weight:bold">${daysBetween(today, p.expiration_date)} gün</td>
+      <td style="padding:8px;color:#e11d48;font-weight:bold">${remainingText(daysBetween(today, p.expiration_date))}</td>
       <td style="padding:8px">${escapeHtml(String(p.status).toUpperCase())}</td>
       <td style="padding:8px;text-align:right">${p.price || 0} TL</td>
     </tr>`,
@@ -173,7 +177,9 @@ const emailHtml = (projects: Record<string, any>[], today: string) => `
 </div>`;
 
 /**
- * 7 gün veya daha az kalan, ödenmemiş ve aktif projeler için günde bir bildirim gönderir.
+ * Bitişine 7 gün veya daha az kalan ya da süresi geçmiş projeler için günde bir bildirim gönderir.
+ * Durum "ödendi" olsa da bildirilir: tarih yaklaştıysa yeni dönemin ödemesi gelmiştir. "+1 yıl uzat"
+ * tarihi ileri attığı için hatırlatma kendiliğinden durur. İptal/durdurulan projeler atlanır.
  * Ayarlı olan her kanala (Slack, e-posta) gider; en az biri başarılıysa projeler "bildirildi" sayılır.
  */
 const notifyUpcoming = async (env: Env) => {
@@ -186,14 +192,14 @@ const notifyUpcoming = async (env: Env) => {
   const today = todayTR();
   const { results } = await env.DB.prepare(
     `SELECT * FROM projects
-     WHERE status NOT IN ('odendi', 'iptal', 'durduruldu')
+     WHERE status NOT IN ('iptal', 'durduruldu')
      ORDER BY expiration_date`,
   ).all<Record<string, any>>();
 
   const toNotify = results.filter((p) => {
     const daysLeft = daysBetween(today, p.expiration_date);
     const sentToday = p.slack_notified_at && todayOf(p.slack_notified_at) === today;
-    return daysLeft >= 0 && daysLeft <= 7 && !sentToday;
+    return daysLeft <= 7 && !sentToday;
   });
 
   if (toNotify.length === 0) {
@@ -207,7 +213,7 @@ const notifyUpcoming = async (env: Env) => {
     let text = '⚠️ *HostTracker: Günlük Ödeme Hatırlatıcısı*\n\n';
     for (const p of toNotify) {
       const daysLeft = daysBetween(today, p.expiration_date);
-      text += `• *${p.project_name}* (${p.domain})\n   ⏰ ${daysLeft} gün kaldı | Durum: *${String(p.status).toUpperCase()}* | Ücret: ${p.price || 0} TL\n\n`;
+      text += `• *${p.project_name}* (${p.domain})\n   ⏰ ${remainingText(daysLeft)} | Durum: *${String(p.status).toUpperCase()}* | Ücret: ${p.price || 0} TL\n\n`;
     }
     const res = await postToSlack(slackUrl, text).catch(() => null);
     res?.ok ? sent.push('Slack') : errors.push(`Slack hata döndürdü: ${res?.status ?? 'bağlantı yok'}`);
